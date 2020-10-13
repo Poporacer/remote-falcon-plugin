@@ -1,13 +1,19 @@
-<h1 style="margin-left: 1em;">Remote Falcon Plugin v4.6.0</h1>
+<h1 style="margin-left: 1em;">Remote Falcon Plugin v4.6.0</h1><!-- Does this need to change? -->
 <h4 style="margin-left: 1em;"></h4>
 
 <?php
-/**GLOBALS */
-$pageLocation = "Location: ?plugin=remote-falcon&page=remote_falcon.php";
-$pluginPath = "/home/fpp/media/plugins/remote-falcon";
-$scriptPath = "/home/fpp/media/plugins/remote-falcon/scripts";
-$remoteFppEnabled = trim(file_get_contents("$pluginPath/remote_fpp_enabled.txt"));
-$interruptScheduleEnabled = trim(file_get_contents("$pluginPath/interrupt_schedule_enabled.txt"));
+include_once "/opt/fpp/www/common.php"; //Alows use of FPP Functions
+$pluginName = basename(dirname(__FILE__));
+$pluginConfigFile = $settings['configDirectory'] ."/plugin." .$pluginName; //gets path to configuration files for plugin
+    
+	if (file_exists($pluginConfigFile))
+		$pluginSettings = parse_ini_file($pluginConfigFile);
+
+$remotePlaylist=urldecode($pluginSettings['remotePlaylist']);// get settings
+$remoteFppEnabled=urldecode($pluginSettings['remote_fpp_enabled']);
+$interruptScheduleEnabled=urldecode($pluginSettings['interrupt_schedule_enabled']);	
+$remoteToken= urldecode($pluginSettings['remoteToken']);
+$playlistDirectory= $settings['playlistDirectory'];
 $playlists = "";
 
 $url = "http://127.0.0.1/api/playlists";
@@ -16,22 +22,24 @@ $options = array(
 		'method'  => 'GET'
 		)
 );
-$context = stream_context_create( $options );
-$result = file_get_contents( $url, false, $context );
-$response = json_decode( $result, true );
-foreach($response as $item) {
-	if(file_exists("$pluginPath/remote_playlist.txt")) {
-		$remotePlaylist = file_get_contents("$pluginPath/remote_playlist.txt");
-		if($item == $remotePlaylist) {
-			$playlists .= "<option selected=\"selected\" value=\"{$item}\">{$item}</option>";
-		}else {
-			$playlists .= "<option value=\"{$item}\">{$item}</option>";
+
+if (is_dir($playlistDirectory)){
+	
+	if ($dirTemp = opendir($playlistDirectory)){
+		while (($fileRead = readdir($dirTemp)) !== false){
+			if (($fileRead == ".") || ($fileRead == "..")){
+				continue;
+			}
+			$fileRead=pathinfo($fileRead, PATHINFO_FILENAME);
+			if ($fileRead==$remotePlaylist){
+				$playlists .="<option value=\"{$fileRead}\" selected>{$fileRead}</option>";
+			}else{
+				$playlists .="<option value=\"{$fileRead}\">{$fileRead}</option>";
+			}
 		}
-	}else {
-		$playlists .= "<option value=\"{$item}\">{$item}</option>";
+	  closedir($dirTemp);
 	}
 }
-
 $url = "http://127.0.0.1/api/plugin/remote-falcon/updates";
 $options = array(
 	'http' => array(
@@ -54,21 +62,18 @@ if($response['updatesAvailable'] == 0) {
 	";
 }
 
-if(file_exists("$pluginPath/remote_token.txt")) {
-	$remoteToken = file_get_contents("$pluginPath/remote_token.txt");
-	if($remoteToken) {
-		echo "
-			<h3 style=\"margin-left: 1em; color: #D65A31;\">Step 1:</h3>
-			<h5 style=\"margin-left: 1em;\">If you need to update your remote token, place it in the input box below and click \"Update Token\".</h5>
-			<div style=\"margin-left: 1em;\">
-				<form method=\"post\">
-					<input type=\"password\" name=\"remoteToken\" id=\"remoteToken\" size=100 value=\"${remoteToken}\">
-					<br>
-					<input id=\"saveRemoteTokenButton\" class=\"button\" name=\"saveRemoteToken\" type=\"submit\" value=\"Update Token\"/>
-				</form>
-			</div>
-		";
-	}
+if(strlen($remoteToken)>1) {
+	echo "
+		<h3 style=\"margin-left: 1em; color: #D65A31;\">Step 1:</h3>
+		<h5 style=\"margin-left: 1em;\">If you need to update your remote token, place it in the input box below and click \"Update Token\".</h5>
+		<div style=\"margin-left: 1em;\">
+			<form method=\"post\">
+				<input type=\"password\" name=\"remoteToken\" id=\"remoteToken\" size=100 value=\"${remoteToken}\">
+				<br>
+				<input id=\"saveRemoteTokenButton\" class=\"button\" name=\"saveRemoteToken\" type=\"submit\" value=\"Update Token\"/>
+			</form>
+		</div>
+	";
 } else {
 	echo "
 		<h3 style=\"margin-left: 1em; color: #D65A31;\">Step 1:</h3>
@@ -84,9 +89,7 @@ if(file_exists("$pluginPath/remote_token.txt")) {
 }
 if (isset($_POST['saveRemoteToken'])) {
 	$remoteToken = trim($_POST['remoteToken']);
-  global $pluginPath;
-	shell_exec("rm -f $pluginPath/remote_token.txt");
-	shell_exec("echo $remoteToken > $pluginPath/remote_token.txt");
+	WriteSettingToFile("remoteToken",urlencode($_POST["remoteToken"]),$pluginName);
 	echo "
 		<div style=\"margin-left: 1em;\">
 			<h4 style=\"color: #D65A31;\">Remote Token successfully saved.</h4>
@@ -115,11 +118,9 @@ echo "
 ";
 if (isset($_POST['saveRemotePlaylist'])) {
 	$remotePlaylist = trim($_POST['remotePlaylist']);
-	if(file_exists("$pluginPath/remote_token.txt")) {
-		shell_exec("rm -f $pluginPath/remote_playlist.txt");
-		shell_exec("echo $remotePlaylist > $pluginPath/remote_playlist.txt");
+	if(strlen($remoteToken)>1) {
+		WriteSettingToFile("remotePlaylist",urlencode($_POST["remotePlaylist"]),$pluginName);
 		$playlists = array();
-		$remoteToken = trim(file_get_contents("$pluginPath/remote_token.txt"));
 		$remotePlaylistEncoded = str_replace(' ', '%20', $remotePlaylist);
 		$url = "http://127.0.0.1/api/playlist/${remotePlaylistEncoded}";
 		$options = array(
@@ -220,19 +221,17 @@ if(strval($remoteFppEnabled) == "true") {
 	";
 }
 if (isset($_POST['updateToggles'])) {
-  global $pluginPath;
 	$remoteFppChecked = "false";
 	if (isset($_POST['remoteFppEnabled'])) {
 		$remoteFppChecked = "true";
 	}
-	shell_exec("rm -f $pluginPath/remote_fpp_enabled.txt");
-	shell_exec("echo $remoteFppChecked > $pluginPath/remote_fpp_enabled.txt");
+	WriteSettingToFile("remote_fpp_enabled",$remoteFppChecked,$pluginName);
 	echo "
 		<div style=\"margin-left: 1em;\">
 			<h4 style=\"color: #D65A31;\">Toggle has been successfully updated.</h4>
 		</div>
 	";
-	$remoteFppEnabled = trim(file_get_contents("$pluginPath/remote_fpp_enabled.txt"));
+	$remoteFppEnabled = urldecode($pluginSettings['remote_fpp_enabled']);
 }
 
 if(strval($interruptScheduleEnabled) == "true") {
@@ -269,19 +268,17 @@ if(strval($interruptScheduleEnabled) == "true") {
 	";
 }
 if (isset($_POST['interruptScheduleToggle'])) {
-  global $pluginPath;
-	$interruptScheduleChecked = "false";
+  	$interruptScheduleChecked = "false";
 	if (isset($_POST['interruptScheduleEnabled'])) {
 		$interruptScheduleChecked = "true";
 	}
-	shell_exec("rm -f $pluginPath/interrupt_schedule_enabled.txt");
-	shell_exec("echo $interruptScheduleChecked > $pluginPath/interrupt_schedule_enabled.txt");
+	WriteSettingToFile("interrupt_schedule_enabled",$interruptScheduleChecked,$pluginName);
 	echo "
 		<div style=\"margin-left: 1em;\">
 			<h4 style=\"color: #D65A31;\">Toggle has been successfully updated.</h4>
 		</div>
 	";
-	$interruptScheduleEnabled = trim(file_get_contents("$pluginPath/interrupt_schedule_enabled.txt"));
+	$interruptScheduleEnabled = urldecode($pluginSettings['interrupt_schedule_enabled']);
 }
 
 echo "
