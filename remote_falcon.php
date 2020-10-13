@@ -104,7 +104,7 @@ echo "<input id=\"saveRemotePlaylistButton\" class=\"button\" name=\"saveRemoteP
 if (isset($_POST['saveRemotePlaylist'])) {
 	$remotePlaylist = trim($_POST['remotePlaylist']);
 	if(strlen($remoteToken)>1) {
-		//WriteSettingToFile("remotePlaylist",urlencode($_POST["remotePlaylist"]),$pluginName);
+		WriteSettingToFile("remotePlaylist",urlencode($_POST["remotePlaylist"]),$pluginName);
 		$playlists = array();
 		$remotePlaylistEncoded = str_replace(' ', '%20', $remotePlaylist);// change to urlencode?
 		$url = "http://127.0.0.1/api/playlist/${remotePlaylistEncoded}";
