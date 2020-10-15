@@ -7,7 +7,12 @@ if (file_exists($pluginConfigFile)) {
 	$pluginSettings = parse_ini_file($pluginConfigFile);
 }
 
-$pluginVersion = "5.0.0";
+$pluginVersion = "5.0.1";
+
+if(!file_exists($pluginConfigFile)) {
+	WriteSettingToFile("remote_fpp_enabled",urlencode("false"),$pluginName);
+	WriteSettingToFile("interrupt_schedule_enabled",urlencode("false"),$pluginName);
+}
 
 WriteSettingToFile("pluginVersion",urlencode($pluginVersion),$pluginName);
 
@@ -32,6 +37,7 @@ $options = array(
 
 if (is_dir($playlistDirectory)){
 	$playlistDropdown=array();
+	$playlistDropdown[""]="";
 	if ($dirTemp = opendir($playlistDirectory)){
 		while (($fileRead = readdir($dirTemp)) !== false){
 			if (($fileRead == ".") || ($fileRead == "..")){
@@ -45,7 +51,6 @@ if (is_dir($playlistDirectory)){
 }
 
 if (is_dir($playlistDirectory)){
-	
 	if ($dirTemp = opendir($playlistDirectory)){
 		while (($fileRead = readdir($dirTemp)) !== false){
 			if (($fileRead == ".") || ($fileRead == "..")){
