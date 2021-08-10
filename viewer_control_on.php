@@ -2,29 +2,15 @@
 include_once "/opt/fpp/www/common.php";
 include_once "/home/fpp/media/plugins/remote-falcon/baseurl.php";
 $baseUrl = getBaseUrl();
-$pluginName = basename(dirname(__FILE__));
-$pluginConfigFile = $settings['configDirectory'] . "/plugin." .$pluginName;
+$pluginConfigFile = $settings['configDirectory'] . "/plugin.remote-falcon";
 $pluginSettings = parse_ini_file($pluginConfigFile);
 
-$pluginVersion = urldecode($pluginSettings['pluginVersion']);
 $remoteToken = urldecode($pluginSettings['remoteToken']);
 
 if(strlen($remoteToken)>1) {
-	$url = "http://127.0.0.1/api/fppd/version";
-	$options = array(
-		'http' => array(
-			'method'  => 'GET'
-			)
-	);
-	$context = stream_context_create( $options );
-	$result = file_get_contents( $url, false, $context );
-	$response = json_decode( $result );
-	$fppVersion = $response->version;
-	
-	$url = $baseUrl . "/remotefalcon/api/pluginVersion";
+	$url = $baseUrl . "/remotefalcon/api/updateViewerControl";
 	$data = array(
-		'pluginVersion' => $pluginVersion,
-		'fppVersion' => $fppVersion
+		'viewerControlEnabled' => 'Y'
 	);
 	$options = array(
 		'http' => array(
